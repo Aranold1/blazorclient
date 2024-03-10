@@ -1,0 +1,175 @@
+@page "/"
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.SignalR.Client
+@using GptBlazor.Models;
+@using System.Text.Json;
+@using System.Security.Claims
+@implements IAsyncDisposable
+
+<div class="container">
+    <div class="sidebar">
+        <div class="chat-panel">
+            @if(chats != null)
+            {
+                @foreach (var chat in chats)
+                {
+                    <div class="chat-item" @onclick="()=>ChangeChat(chat.Id)">
+                        <span class="oi oi-list-rich" aria-hidden="true"></span> <span class="chat-title">@chat.Theme   </span>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="main-content">
+        <ul class="message-list">
+            @if (messages !=null)
+            {
+                @foreach (var message in messages)
+                {
+                    <li class="message @((message.IsGptAuthor ?? false) ? "gpt-message" : "user-message")">
+                        <div class="nameWithProfile">
+                            <img class="profileImage" src="@(message.IsGptAuthor ?? false ? "https://cdn-icons-png.freepik.com/512/11865/11865313.png" : "https://miro.medium.com/v2/resize:fit:1200/0*wNYGifDh7BifVw8Y.jpg")" />
+                            <div class="nameHolder">
+                                @(message.IsGptAuthor ?? false ? "ChatGpt" : userName)
+                            </div>
+                        </div>
+                        <div class="message-body">@message.Body</div>
+                    </li>
+                }
+            }
+        </ul>
+
+        @if (!isAnswerInProgress)
+        {
+            <div class="chatInput">
+                <textarea class="messageInput" @bind="messageInput" type="text"></textarea>
+                <button class="chatButton" @onclick="@(()=>SendMessageAsync(messageInput))"></button>
+            </div>
+        }
+        else
+        {
+            <div class="lds-roller"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+        }
+    </div>
+</div>
+
+
+@code{
+    private List<Claim> claims = new();
+    private HubConnection? hubConnection;
+    private List<Message> messages = new();
+    private Stack<Chat> chats = new ();
+    private bool isAnswerInProgress = false;
+    private string? messageInput;
+    //mock
+    private int? chatId;
+    //mock 
+    private int userId=1;
+    //mock 
+    private string userName = "Henry";
+
+    JsonSerializerOptions options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+        };
+
+    public async void ChangeChat(int id)
+    {
+        using (var  client = new HttpClient())
+        {
+            try
+            {
+                var response = await client.GetAsync($"http://localhost:5001/getmessagesfromchatbychatid?chatId={id}");
+                var messagesJson = await response.Content.ReadAsStringAsync();
+
+                messages = JsonSerializer.Deserialize<List<Message>>(messagesJson, options);
+                await InvokeAsync(StateHasChanged);
+            }
+            catch
+            {
+
+            }
+        }
+
+    } 
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        using(var client = new HttpClient())
+        {
+            try
+            {    
+                var response = await client.GetAsync($"http://localhost:5001/GetChatsByUserId?UserId={userId}");
+                var jsonChats = await response.Content.ReadAsStringAsync();
+                chats = JsonSerializer.Deserialize<Stack<Chat>>(jsonChats,options);
+                chats.Reverse();
+            }
+            catch
+            {
+                
+            }
+        }
+
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/chathub"))
+            .Build();
+
+        hubConnection.On<string>("ReciveAnswer",async (message) =>
+        {
+            messages.Add(new Message()
+            {
+                Body = message,
+                IsGptAuthor = true
+            });
+            isAnswerInProgress = false;
+            await InvokeAsync(StateHasChanged);
+        });
+        await hubConnection.StartAsync();
+    }
+
+    private async Task SendMessageAsync(string message)
+    {
+
+        if (hubConnection is not null)
+        {
+            if (!string.IsNullOrEmpty(message)&&hubConnection!=null)
+            {
+
+                isAnswerInProgress = true;
+                await InvokeAsync(StateHasChanged);
+                message = message.Trim();
+
+                messages.Add(new Message()
+                    {
+                        Body = messageInput,
+                        IsGptAuthor = false
+                    });
+                chats.Push(new Chat
+                    {
+                        Theme = "New chat",
+                        Fkuserid = userId
+                    });
+                await hubConnection.SendAsync("SendMessage", messageInput, chatId, userId);
+                await InvokeAsync(StateHasChanged);
+
+            } 
+        }
+
+    }
+    
+    public bool IsConnected =>
+        hubConnection?.State == HubConnectionState.Connected;
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+  
+}

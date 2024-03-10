@@ -1,0 +1,157 @@
+/* Общие стили */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
+.chat-panel {
+    overflow-y: auto; /* Добавляем вертикальную полосу прокрутки */
+    padding: 20px;
+    max-height: calc(100vh - 40px); /* Ограничиваем высоту чата */
+}
+.chat-item:hover {
+    background-color: #222; /* Цвет фона при наведении */
+}
+
+.chat-item .oi {
+    margin-right: 10px;
+}
+.chat-item {
+    padding: 10px 0;
+    cursor: pointer;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.chat-title {
+    margin-left: 10px;
+}
+.container {
+    display: flex;
+    height: 100vh;
+}
+.sidebar {
+    width: 20%;
+    background-color: #000; /* Черный цвет */
+    color: #fff; /* Белый цвет текста */
+}
+
+.main-content {
+    flex-grow: 1;
+    padding: 20px;
+    background-color: #f0f0f0;
+    overflow-y: auto;
+}
+
+.nav-item {
+    padding: 10px 0;
+}
+
+    .nav-item .nav-link {
+        color: #fff;
+        text-decoration: none;
+    }
+
+        .nav-item .nav-link:hover {
+            color: #ccc;
+        }
+
+.message-list {
+    list-style-type: none;
+    padding: 0;
+    overflow:scroll;
+}
+
+.message {
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: #fff;
+    border-radius: 5px;
+}
+
+.profileImage {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+.nameHolder {
+    font-weight: bold;
+}
+
+.message-body {
+    margin-top: 5px;
+}
+
+.gpt-message {
+    background-color: #ddeeff;
+}
+
+.user-message {
+    background-color: #e6ffe6;
+}
+
+.messageInput {
+    width: calc(100% - 40px);
+    height: 50px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    resize: none;
+    margin-bottom: 10px;
+}
+
+.chatButton {
+    width: 50px; /* Ширина кнопки */
+    height: 50px;
+    border: none;
+    border-radius: 5px;
+    background-color: green; /* Задаем зеленый цвет фона */
+    color: #fff; /* Цвет текста */
+    cursor: pointer;
+    transition: background-color 0.3s; /* Анимация при наведении */
+}
+
+    .chatButton:hover {
+        background-color: darkgreen; /* Изменение цвета при наведении */
+    }
+
+.chatInput {
+    display: flex;
+    align-items: center;
+}
+
+.lds-roller {
+    margin: 10px 0;
+    display: inline-block;
+    position: relative;
+    width: 64px;
+    height: 64px;
+}
+
+    .lds-roller div {
+        animation: lds-roller 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+        transform-origin: 32px 32px;
+    }
+
+        .lds-roller div:after {
+            content: " ";
+            display: block;
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #000;
+            margin: -3px 0 0 -3px;
+        }
+
+@keyframes lds-roller {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
