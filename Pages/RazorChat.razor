@@ -10,7 +10,7 @@
 <div class="container">
     <div class="sidebar">
         <div class="chat-panel">
-            @if(chats != null)
+            @if (chats != null)
             {
                 @foreach (var chat in chats)
                 {
@@ -24,7 +24,7 @@
 
     <div class="main-content">
         <ul class="message-list">
-            @if (messages !=null)
+            @if (messages != null)
             {
                 @foreach (var message in messages)
                 {
@@ -56,18 +56,18 @@
 </div>
 
 
-@code{
+@code {
     private List<Claim> claims = new();
     private HubConnection? hubConnection;
     private List<Message> messages = new();
-    private Stack<Chat> chats = new ();
+    private Stack<Chat> chats;
     private bool isAnswerInProgress = false;
     private string? messageInput;
     //mock
     private int? chatId;
-    //mock 
-    private int userId=1;
-    //mock 
+    //mock
+    private int userId = 1;
+    //mock
     private string userName = "Henry";
 
     JsonSerializerOptions options = new JsonSerializerOptions
@@ -75,42 +75,25 @@
             PropertyNameCaseInsensitive = true,
         };
 
-    public async void ChangeChat(int id)
-    {
-        using (var  client = new HttpClient())
-        {
-            try
-            {
-                var response = await client.GetAsync($"http://localhost:5001/getmessagesfromchatbychatid?chatId={id}");
-                var messagesJson = await response.Content.ReadAsStringAsync();
-
-                messages = JsonSerializer.Deserialize<List<Message>>(messagesJson, options);
-                await InvokeAsync(StateHasChanged);
-            }
-            catch
-            {
-
-            }
-        }
-
-    } 
-
-
     protected override async Task OnInitializedAsync()
     {
 
-        using(var client = new HttpClient())
+        using (var client = new HttpClient())
         {
             try
-            {    
-                var response = await client.GetAsync($"http://localhost:5001/GetChatsByUserId?UserId={userId}");
+            {
+#if DEBUG
+            var response = await client.GetAsync($"http://localhost:5001/GetChatsByUserId?UserId={userId}");
+#else
+                var response = await client.GetAsync($"http://apiforblazor:5001/GetChatsByUserId?UserId={userId}");
+#endif
                 var jsonChats = await response.Content.ReadAsStringAsync();
-                chats = JsonSerializer.Deserialize<Stack<Chat>>(jsonChats,options);
+                chats = JsonSerializer.Deserialize<Stack<Chat>>(jsonChats, options);
                 chats.Reverse();
             }
             catch
             {
-                
+
             }
         }
 
@@ -118,49 +101,83 @@
             .WithUrl(Navigation.ToAbsoluteUri("/chathub"))
             .Build();
 
-        hubConnection.On<string>("ReciveAnswer",async (message) =>
+        hubConnection.On<string>("ReciveAnswer", async (message) =>
         {
             messages.Add(new Message()
-            {
-                Body = message,
-                IsGptAuthor = true
-            });
+                {
+                    Body = message,
+                    IsGptAuthor = true
+                });
             isAnswerInProgress = false;
             await InvokeAsync(StateHasChanged);
         });
         await hubConnection.StartAsync();
     }
+    public async void ChangeChat(int id)
+    {
+        using (var client = new HttpClient())
+        {
+
+            try
+            {
+#if DEBUG
+            var response = await client.GetAsync($"http://localhost:5001/getmessagesfromchatbychatid?chatId={id}");
+
+#else
+                var response = await client.GetAsync($"http://apiforblazor:5001/getmessagesfromchatbychatid?chatId={id}");
+
+#endif
+                var messagesJson = await response.Content.ReadAsStringAsync();
+
+                messages = JsonSerializer.Deserialize<List<Message>>(messagesJson, options);
+                chatId = id;
+                await InvokeAsync(StateHasChanged);
+            }
+            catch
+            {
+
+            }
+
+        }
+
+    }
+
+
+
 
     private async Task SendMessageAsync(string message)
     {
 
-        if (hubConnection is not null)
+        if (!string.IsNullOrEmpty(message))
         {
-            if (!string.IsNullOrEmpty(message)&&hubConnection!=null)
+
+            isAnswerInProgress = true;
+            await InvokeAsync(StateHasChanged);
+            message = message.Trim();
+
+            messages.Add(new Message()
+                {
+                    Body = messageInput,
+                    IsGptAuthor = false
+                });
+            if (chatId == null)
             {
-
-                isAnswerInProgress = true;
-                await InvokeAsync(StateHasChanged);
-                message = message.Trim();
-
-                messages.Add(new Message()
-                    {
-                        Body = messageInput,
-                        IsGptAuthor = false
-                    });
                 chats.Push(new Chat
                     {
                         Theme = "New chat",
                         Fkuserid = userId
                     });
-                await hubConnection.SendAsync("SendMessage", messageInput, chatId, userId);
-                await InvokeAsync(StateHasChanged);
+            }
 
-            } 
+            await hubConnection.SendAsync("SendMessage", messageInput, chatId, userId);
+            messageInput = "";
+            await InvokeAsync(StateHasChanged);
+
         }
 
+
     }
-    
+
     public bool IsConnected =>
         hubConnection?.State == HubConnectionState.Connected;
 
@@ -171,5 +188,5 @@
             await hubConnection.DisposeAsync();
         }
     }
-  
+
 }
